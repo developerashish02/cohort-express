@@ -10,7 +10,7 @@ Each version entry should follow this format:
 
 ---
 
-## [1.0.0] - 2026-06-20 (`aecce97`)
+## [1.0.0] - 2026-06-20 [#1](https://github.com/Haystack-Lab/cohort-express/pull/1)
 
 ### Added
 - **Auth module with full MVC structure** (Ashish)
