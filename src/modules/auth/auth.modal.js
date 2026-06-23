@@ -28,7 +28,8 @@ const userSchema = new mongoose.Schema({
         type: String,
         minLength: 8,
         maxLength: 100,
-        trim: true
+        trim: true,
+        select: false
     },
     isVerified: {
         type: Boolean,
