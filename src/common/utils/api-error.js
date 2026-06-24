@@ -14,6 +14,14 @@ class ApiError extends Error {
     static conflict(message = "conflict") {
         return new ApiError(409, message);
     }
+
+    static notFound(message = "not found") {
+        return new ApiError(404, message);
+    }
+
+    static unAuthorized(message = "unAuthorized") {
+        return new ApiError(401, message)
+    }
 }
 
 export default ApiError;
