@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
 import User from "./auth.modal.js";
 import ApiError from "../../common/utils/api-error.js";
-import { generateToken, verifyHash } from "../../common/utils/hash.js";
+import { generateHashToken, generateToken, verifyHash } from "../../common/utils/hash.js";
 import ApiResponse from "../../common/utils/api-response.js";
+import { generateAccessToken, generateRefreshToken } from "../../common/utils/jwt.utils.js";
 
 const generateHash = async (value) => {
     return await bcrypt.hash(value, 10);
@@ -29,7 +30,7 @@ const registerUser = async ({ name, email, password }) => {
     return { name: user.name, email: user.email, role: user.role, id: user._id };
 };
 
-const verify = async ({ email, rawToken }) => {
+const verifyUser = async ({ email, rawToken }) => {
     // STEP1: check user exist with this email id and get required fields
     const user = await User.findOne({ email }).select("+verificationToken");
     // STEP2: if user not found throw error not found
@@ -65,4 +66,44 @@ const verify = async ({ email, rawToken }) => {
     };
 };
 
-export const authService = { registerUser };
+const loginUser = async ({ email, password }) => {
+    // STEP:1 check email exist in the db 
+    const user = await User.findOne({ email }).select("+password");
+    // STEP:2 when user is not present throw the error 
+    if (!user) {
+        throw ApiError.notFound(`User not found with this ${email} email.`)
+    }
+    // STEP3: check user if verify or not
+    if (!user.isVerified) {
+        throw ApiError.unAuthorized(`User not verified`);
+    }
+    // STEP4: compare password 
+    const isMatch = await bcrypt.compare(password, user.password);
+    // STEP5: password not match throw error 
+    if (!isMatch) {
+        throw ApiError.unAuthorized("Invalid password");
+    }
+    // STEP6: generate accessToken and refresh token
+    const payload = { userId: user._id, role: user.role };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+    // STEP7: generate hash of refreshToken to store in db 
+    const hashRefreshToken = generateHashToken(refreshToken);
+    const updatedUser = await User.findByIdAndUpdate(
+        user._id,
+        { $set: { refreshToken: hashRefreshToken }, },
+        { new: true, runValidators: true }
+    );
+
+    // TODO:- send the accessToken and refreshToken to the user in cookie http only
+
+    // STEP8: send the response to the user
+    return {
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        id: updatedUser._id,
+    };
+}
+
+export const authService = { registerUser, verifyUser, loginUser };

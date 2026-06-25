@@ -6,10 +6,13 @@ const generateToken = () => {
     return { rawToken, hashToken };
 };
 
+const generateHashToken = (rawToken) => {
+    return crypto.createHash("sha256").update(rawToken).digest("hex");
+}
+
 const verifyHash = (rawToken, verificationToken) => {
     const hashToken = crypto.createHash("sha256").update(rawToken).digest("hex");
-
     return hashToken === verificationToken;
 }
 
-export { generateToken, verifyHash };
+export { generateToken, verifyHash, generateHashToken };
