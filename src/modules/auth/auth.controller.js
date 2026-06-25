@@ -6,4 +6,9 @@ const registerUser = async (req, res) => {
     ApiResponse.create(res, "User created successfully", user);
 };
 
-export { registerUser };
+const verifyUser = async (req, res) => {
+    const user = await authService.verifyUser(req.body);
+    ApiResponse.ok(res, "User verified successfully", user);
+}
+
+export { registerUser, verifyUser };
