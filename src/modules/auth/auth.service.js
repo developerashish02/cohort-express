@@ -85,8 +85,8 @@ const loginUser = async ({ email, password }) => {
     }
     // STEP6: generate accessToken and refresh token
     const payload = { userId: user._id, role: user.role };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
+    const accessToken = await generateAccessToken(payload);
+    const refreshToken = await generateRefreshToken(payload);
     // STEP7: generate hash of refreshToken to store in db 
     const hashRefreshToken = generateHashToken(refreshToken);
     const updatedUser = await User.findByIdAndUpdate(
@@ -99,11 +99,29 @@ const loginUser = async ({ email, password }) => {
 
     // STEP8: send the response to the user
     return {
-        name: updatedUser.name,
-        email: updatedUser.email,
-        role: updatedUser.role,
-        id: updatedUser._id,
+        accessToken,
+        refreshToken,
+        user: {
+            name: updatedUser.name,
+            email: updatedUser.email,
+            role: updatedUser.role,
+            id: updatedUser._id,
+        }
     };
 }
 
-export const authService = { registerUser, verifyUser, loginUser };
+
+const getMe = async (userId) => {
+    const user = await User.findById(userId);
+    if (!user) {
+        throw ApiError.notFound("User not found");
+    }
+    return {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        id: user._id,
+    }
+}
+
+export const authService = { registerUser, verifyUser, loginUser, getMe };

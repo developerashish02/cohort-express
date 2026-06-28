@@ -1,11 +1,11 @@
 import Joi from "joi";
 import BaseDTO from "../../../common/dto/base.dto.js";
 
-class VerifyDto extends BaseDTO {
+class LoginDto extends BaseDTO {
     static schema = Joi.object({
         email: Joi.string().email().trim().lowercase().min(3).max(254).required(),
-        verificationToken: Joi.string().required(),
+        password: Joi.string().min(8).max(100).trim().required(),
     })
 }
 
-export default VerifyDto;
+export default LoginDto; 
