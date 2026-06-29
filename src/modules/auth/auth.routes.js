@@ -6,6 +6,7 @@ import LoginDto from "./dto/login.dto.js";
 import VerifyDto from "./dto/verify.dto.js";
 import ForgotPasswordDto from "./dto/forgot-password.dto.js";
 import { authMiddleware } from "./auth.middleware.js";
+import ResetPasswordDto from "./dto/reset-password.dto.js";
 
 const router = new Router();
 
@@ -15,5 +16,6 @@ router.post("/verify", validate(VerifyDto), controller.verifyUser);
 router.get("/profile", authMiddleware, controller.getMe);
 router.post("/logout", authMiddleware, controller.logoutUser);
 router.post("/forgot-password", validate(ForgotPasswordDto), controller.forgotPassword)
+router.post("/reset-password/:token", validate(ResetPasswordDto), controller.resetPassword)
 
 export default router;

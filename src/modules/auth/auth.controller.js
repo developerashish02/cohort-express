@@ -90,4 +90,16 @@ const forgotPassword = async (req, res, next) => {
     }
 }
 
-export { registerUser, verifyUser, loginUser, getMe, logoutUser, forgotPassword };
+
+const resetPassword = async (req, res, next) => {
+    try {
+        const token = req.params.token;
+        const newPassword = req.body.password;
+        await authService.resetPassword(token, newPassword);
+        ApiResponse.ok("Password reset successfully");
+    } catch (error) {
+        next(error)
+    }
+}
+
+export { registerUser, verifyUser, loginUser, getMe, logoutUser, forgotPassword, resetPassword };

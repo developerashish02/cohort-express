@@ -147,7 +147,7 @@ const forgotPassword = async (email) => {
     }
     // STEP3: generate resetPasswordToken and resetPasswordExpire time
     const { rawToken, hashToken } = generateToken();
-    const resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000); // 15 min 
+    const resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000); // 15 min
 
     // STEP4: store hash token in the database and time
     await User.findByIdAndUpdate(
@@ -164,11 +164,38 @@ const forgotPassword = async (email) => {
     // TODO send email with raw token
 };
 
+const resetPassword = async (rawToken, newPassword) => {
+    const hashResetPasswordToken = generateHashToken(rawToken);
+    const user = await User.findOne({
+        resetPasswordToken: hashResetPasswordToken,
+    }).select("+resetPasswordExpires +resetPasswordToken");
+
+    if (!user) {
+        throw ApiError.badRequest("Invalid or expire token");
+    }
+    const isExpired = Date.now() > user.resetPasswordExpires;
+
+    if (isExpired) {
+        throw ApiError.badRequest("Invalid or expire token")
+    }
+    const hashPassword = await bcrypt.hash(newPassword, 10);
+
+    await User.findByIdAndUpdate(user._id,
+        {
+            $set: { password: hashPassword, resetPasswordExpires: null, resetPasswordToken: null },
+        },
+        {
+            new: true, runValidators: true
+        }
+    )
+};
+
 export const authService = {
     registerUser,
     verifyUser,
     loginUser,
     getMe,
     logoutUser,
-    forgotPassword
+    forgotPassword,
+    resetPassword
 };
