@@ -10,6 +10,7 @@ import ApiResponse from "../../common/utils/api-response.js";
 import {
     generateAccessToken,
     generateRefreshToken,
+    verifyRefreshToken,
 } from "../../common/utils/jwt.utils.js";
 
 const generateHash = async (value) => {
@@ -176,18 +177,50 @@ const resetPassword = async (rawToken, newPassword) => {
     const isExpired = Date.now() > user.resetPasswordExpires;
 
     if (isExpired) {
-        throw ApiError.badRequest("Invalid or expire token")
+        throw ApiError.badRequest("Invalid or expire token");
     }
     const hashPassword = await bcrypt.hash(newPassword, 10);
 
-    await User.findByIdAndUpdate(user._id,
+    await User.findByIdAndUpdate(
+        user._id,
         {
-            $set: { password: hashPassword, resetPasswordExpires: null, resetPasswordToken: null },
+            $set: {
+                password: hashPassword,
+                resetPasswordExpires: null,
+                resetPasswordToken: null,
+            },
         },
         {
-            new: true, runValidators: true
-        }
-    )
+            new: true,
+            runValidators: true,
+        },
+    );
+};
+
+const refreshToken = async (token) => {
+    await verifyRefreshToken(token);
+    const hashToken = generateHashToken(token);
+
+    const user = await User.findOne({ refreshToken: hashToken }).select(
+        "+refreshToken",
+    );
+    if (!user) {
+        throw ApiError.unAuthorized("Invalid token");
+    }
+
+    const payload = { userId: user._id, role: user.role };
+    const newAccessToken = await generateAccessToken(payload);
+    const newRefreshToken = await generateRefreshToken(payload);
+
+    const hashRefreshToken = generateHashToken(newRefreshToken);
+    await User.findByIdAndUpdate(
+        user._id,
+        { $set: { refreshToken: hashRefreshToken } },
+        { new: true, runValidators: true },
+    );
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+
 };
 
 export const authService = {
@@ -197,5 +230,6 @@ export const authService = {
     getMe,
     logoutUser,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    refreshToken,
 };

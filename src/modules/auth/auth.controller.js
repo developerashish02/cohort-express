@@ -1,5 +1,6 @@
 import { authService } from "./auth.service.js";
 import ApiResponse from "../../common/utils/api-response.js";
+import ApiError from "../../common/utils/api-error.js";
 
 const registerUser = async (req, res, next) => {
     try {
@@ -102,4 +103,31 @@ const resetPassword = async (req, res, next) => {
     }
 }
 
-export { registerUser, verifyUser, loginUser, getMe, logoutUser, forgotPassword, resetPassword };
+
+const refreshToken = async (req, res, next) => {
+    try {
+        const refreshToken = req.cookies.refreshToken;
+
+        if (!refreshToken) {
+            throw ApiError.unAuthorized("Invalid token")
+        }
+        const result = await authService.refreshToken(refreshToken);
+
+        res.cookie("accessToken", result.accessToken, {
+            httpOnly: true,
+            sameSite: "strict",
+            secure: process.env.NODE_ENV === "production"
+        })
+
+        res.cookie("refreshToken", result.refreshToken, {
+            httpOnly: true,
+            sameSite: "strict",
+            secure: process.env.NODE_ENV === "production"
+        })
+        ApiResponse.ok(res, "Refresh Token Successfully")
+    } catch (error) {
+        next(error);
+    }
+}
+
+export { registerUser, verifyUser, loginUser, getMe, logoutUser, forgotPassword, resetPassword, refreshToken };

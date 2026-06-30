@@ -16,7 +16,7 @@ const generateRefreshToken = async (payload) => {
     );
 };
 
-const verifyToken = async (token) => {
+const verifyAccessToken = async (token) => {
     try {
         return jwt.verify(token, process.env.JWT_ACCESS_SECRET);
     } catch (error) {
@@ -24,4 +24,13 @@ const verifyToken = async (token) => {
     }
 }
 
-export { generateAccessToken, generateRefreshToken, verifyToken };
+const verifyRefreshToken = async (token) => {
+    try {
+        return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    } catch (error) {
+        throw ApiError.unAuthorized("Unauthorized")
+    }
+}
+
+
+export { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyAccessToken };

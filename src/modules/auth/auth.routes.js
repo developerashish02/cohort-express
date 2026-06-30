@@ -15,7 +15,8 @@ router.post("/login", validate(LoginDto), controller.loginUser);
 router.post("/verify", validate(VerifyDto), controller.verifyUser);
 router.get("/profile", authMiddleware, controller.getMe);
 router.post("/logout", authMiddleware, controller.logoutUser);
-router.post("/forgot-password", validate(ForgotPasswordDto), controller.forgotPassword)
-router.post("/reset-password/:token", validate(ResetPasswordDto), controller.resetPassword)
+router.post("/forgot-password", validate(ForgotPasswordDto), controller.forgotPassword);
+router.post("/reset-password/:token", validate(ResetPasswordDto), controller.resetPassword);
+router.post("/refresh-token", controller.refreshToken);
 
 export default router;
