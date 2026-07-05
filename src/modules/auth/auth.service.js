@@ -1,9 +1,17 @@
 import bcrypt from "bcryptjs";
 import User from "./auth.modal.js";
 import ApiError from "../../common/utils/api-error.js";
-import { generateHashToken, generateToken, verifyHash } from "../../common/utils/hash.js";
+import {
+    generateHashToken,
+    generateToken,
+    verifyHash,
+} from "../../common/utils/hash.js";
 import ApiResponse from "../../common/utils/api-response.js";
-import { generateAccessToken, generateRefreshToken } from "../../common/utils/jwt.utils.js";
+import {
+    generateAccessToken,
+    generateRefreshToken,
+    verifyRefreshToken,
+} from "../../common/utils/jwt.utils.js";
 
 const generateHash = async (value) => {
     return await bcrypt.hash(value, 10);
@@ -53,8 +61,8 @@ const verifyUser = async ({ email, rawToken }) => {
 
     const updatedUser = await User.findByIdAndUpdate(
         user._id,
-        { $set: { isVerified: true, verificationToken: null }, },
-        { new: true, runValidators: true }
+        { $set: { isVerified: true, verificationToken: null } },
+        { new: true, runValidators: true },
     );
 
     // now return
@@ -67,19 +75,19 @@ const verifyUser = async ({ email, rawToken }) => {
 };
 
 const loginUser = async ({ email, password }) => {
-    // STEP:1 check email exist in the db 
+    // STEP:1 check email exist in the db
     const user = await User.findOne({ email }).select("+password");
-    // STEP:2 when user is not present throw the error 
+    // STEP:2 when user is not present throw the error
     if (!user) {
-        throw ApiError.notFound(`User not found with this ${email} email.`)
+        throw ApiError.notFound(`User not found with this ${email} email.`);
     }
     // STEP3: check user if verify or not
     if (!user.isVerified) {
         throw ApiError.unAuthorized(`User not verified`);
     }
-    // STEP4: compare password 
+    // STEP4: compare password
     const isMatch = await bcrypt.compare(password, user.password);
-    // STEP5: password not match throw error 
+    // STEP5: password not match throw error
     if (!isMatch) {
         throw ApiError.unAuthorized("Invalid password");
     }
@@ -87,12 +95,12 @@ const loginUser = async ({ email, password }) => {
     const payload = { userId: user._id, role: user.role };
     const accessToken = await generateAccessToken(payload);
     const refreshToken = await generateRefreshToken(payload);
-    // STEP7: generate hash of refreshToken to store in db 
+    // STEP7: generate hash of refreshToken to store in db
     const hashRefreshToken = generateHashToken(refreshToken);
     const updatedUser = await User.findByIdAndUpdate(
         user._id,
-        { $set: { refreshToken: hashRefreshToken }, },
-        { new: true, runValidators: true }
+        { $set: { refreshToken: hashRefreshToken } },
+        { new: true, runValidators: true },
     );
 
     // TODO:- send the accessToken and refreshToken to the user in cookie http only
@@ -106,10 +114,9 @@ const loginUser = async ({ email, password }) => {
             email: updatedUser.email,
             role: updatedUser.role,
             id: updatedUser._id,
-        }
+        },
     };
-}
-
+};
 
 const getMe = async (userId) => {
     const user = await User.findById(userId);
@@ -121,7 +128,108 @@ const getMe = async (userId) => {
         email: user.email,
         role: user.role,
         id: user._id,
-    }
-}
+    };
+};
 
-export const authService = { registerUser, verifyUser, loginUser, getMe };
+const logoutUser = async (userId) => {
+    await User.findByIdAndUpdate(
+        userId,
+        { $set: { refreshToken: null } },
+        { new: true, runValidators: true },
+    );
+};
+
+const forgotPassword = async (email) => {
+    // STEP1:- check user exist with this email
+    const user = await User.findOne({ email });
+    // STEP2:- if email not in the database for the security share the generic response
+    if (!user) {
+        return null;
+    }
+    // STEP3: generate resetPasswordToken and resetPasswordExpire time
+    const { rawToken, hashToken } = generateToken();
+    const resetPasswordExpire = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+
+    // STEP4: store hash token in the database and time
+    await User.findByIdAndUpdate(
+        user._id,
+        {
+            $set: {
+                resetPasswordToken: hashToken,
+                resetPasswordExpires: resetPasswordExpire,
+            },
+        },
+        { new: true, runValidators: true },
+    );
+    // STEP5: send the raw token to the email
+    // TODO send email with raw token
+};
+
+const resetPassword = async (rawToken, newPassword) => {
+    const hashResetPasswordToken = generateHashToken(rawToken);
+    const user = await User.findOne({
+        resetPasswordToken: hashResetPasswordToken,
+    }).select("+resetPasswordExpires +resetPasswordToken");
+
+    if (!user) {
+        throw ApiError.badRequest("Invalid or expire token");
+    }
+    const isExpired = Date.now() > user.resetPasswordExpires;
+
+    if (isExpired) {
+        throw ApiError.badRequest("Invalid or expire token");
+    }
+    const hashPassword = await bcrypt.hash(newPassword, 10);
+
+    await User.findByIdAndUpdate(
+        user._id,
+        {
+            $set: {
+                password: hashPassword,
+                resetPasswordExpires: null,
+                resetPasswordToken: null,
+            },
+        },
+        {
+            new: true,
+            runValidators: true,
+        },
+    );
+};
+
+const refreshToken = async (token) => {
+    await verifyRefreshToken(token);
+    const hashToken = generateHashToken(token);
+
+    const user = await User.findOne({ refreshToken: hashToken }).select(
+        "+refreshToken",
+    );
+    if (!user) {
+        throw ApiError.unAuthorized("Invalid token");
+    }
+
+    const payload = { userId: user._id, role: user.role };
+    const newAccessToken = await generateAccessToken(payload);
+    const newRefreshToken = await generateRefreshToken(payload);
+
+    const hashRefreshToken = generateHashToken(newRefreshToken);
+    await User.findByIdAndUpdate(
+        user._id,
+        { $set: { refreshToken: hashRefreshToken } },
+        { new: true, runValidators: true },
+    );
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+
+};
+
+export const authService = {
+    registerUser,
+    verifyUser,
+    loginUser,
+    getMe,
+    logoutUser,
+    forgotPassword,
+    resetPassword,
+    refreshToken,
+};

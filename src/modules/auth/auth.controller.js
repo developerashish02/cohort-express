@@ -1,5 +1,6 @@
 import { authService } from "./auth.service.js";
 import ApiResponse from "../../common/utils/api-response.js";
+import ApiError from "../../common/utils/api-error.js";
 
 const registerUser = async (req, res, next) => {
     try {
@@ -54,4 +55,79 @@ const getMe = async (req, res, next) => {
     }
 }
 
-export { registerUser, verifyUser, loginUser, getMe };
+
+const logoutUser = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        await authService.logoutUser(userId);
+
+        res.clearCookie("accessToken", {
+            httpOnly: true,
+            sameSite: "strict",
+            secure: process.env.NODE_ENV === "production"
+        })
+
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            sameSite: "strict",
+            secure: process.env.NODE_ENV === "production"
+        })
+
+        ApiResponse.ok(res, "User logout successfully");
+
+    } catch (error) {
+        next(error)
+    }
+}
+
+
+const forgotPassword = async (req, res, next) => {
+    try {
+        const email = req.body.email;
+        await authService.forgotPassword(email);
+        ApiResponse.ok(res, "If an account exists with this email, a reset link has been sent.");
+    } catch (error) {
+        next(error)
+    }
+}
+
+
+const resetPassword = async (req, res, next) => {
+    try {
+        const token = req.params.token;
+        const newPassword = req.body.password;
+        await authService.resetPassword(token, newPassword);
+        ApiResponse.ok("Password reset successfully");
+    } catch (error) {
+        next(error)
+    }
+}
+
+
+const refreshToken = async (req, res, next) => {
+    try {
+        const refreshToken = req.cookies.refreshToken;
+
+        if (!refreshToken) {
+            throw ApiError.unAuthorized("Invalid token")
+        }
+        const result = await authService.refreshToken(refreshToken);
+
+        res.cookie("accessToken", result.accessToken, {
+            httpOnly: true,
+            sameSite: "strict",
+            secure: process.env.NODE_ENV === "production"
+        })
+
+        res.cookie("refreshToken", result.refreshToken, {
+            httpOnly: true,
+            sameSite: "strict",
+            secure: process.env.NODE_ENV === "production"
+        })
+        ApiResponse.ok(res, "Refresh Token Successfully")
+    } catch (error) {
+        next(error);
+    }
+}
+
+export { registerUser, verifyUser, loginUser, getMe, logoutUser, forgotPassword, resetPassword, refreshToken };
